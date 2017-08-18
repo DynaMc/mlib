@@ -3,3 +3,5 @@ pycrypto
 bitarray
 capstone
 pefile 
+enum34
+

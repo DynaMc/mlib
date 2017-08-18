@@ -32,20 +32,24 @@ def rsa_new_pkcs(n=1024):
 class rc2:
 
     @classmethod
-    def decrypt(cls,d,key, mode, IV=None, padding=None):
-        return _rc2(key).decrypt(d,mode,IV,padding)
+    def decrypt(cls,d,key=None, mode=None, IV=None, padding=None):
+        return _rc2(key or cls.key).decrypt(d,mode,IV,padding)
 
     @classmethod
-    def encrypt(cls,d,key, mode, IV=None, padding=None):
-        return _rc2(key).decrypt(d,mode,IV,padding)
+    def encrypt(cls,d,key=None, mode=None, IV=None, padding=None):
+        return _rc2(key or cls.key).decrypt(d,mode,IV,padding)
 
 class aes:
 
 
     @classmethod
-    def decrypt(cls,d,k,_xor=None,mode='ecb',**rest):
+    def decrypt(cls,d,k=None,_xor=None,mode='ecb',*rest):
+        if not k:
+            k = cls.key
+            
         mode = getattr(AES,'MODE_'+mode.upper())
-        clean = AES.new(k,mode,**rest).decrypt(d)
+        print 
+        clean = AES.new(k,mode,*rest).decrypt(d)
         if _xor:
             return xor(clean,_xor)
         return clean
@@ -54,12 +58,15 @@ class aes:
 class rc4:
 
     @classmethod
-    def decrypt(cls,data, key,derive_key=None,xor=None,mod1=0,mod2=0):
+    def decrypt(cls,data, key=None,derive_key=None,use_sbox=False,xor=None,mod1=0,mod2=0):
 
+        if not key:
+            key = cls.key
+            
         if derive_key:
             key = derive_key(key)
         
-        if len(key) < 0x100:
+        if not use_sbox:
             cip = RC4.new(key)
             return cip.decrypt(data)
 
@@ -86,7 +93,7 @@ class rc4:
         return k
     
     @classmethod
-    def encrypt(cls,data, key,derive_key=None,xor=None,mod1=0,mod2=0):
+    def encrypt(cls,data, key=None,derive_key=None,xor=None,mod1=0,mod2=0):
         return rc4.decrypt(data,key,derive_key,xor,mod1,mod2)
 
 def visEncry(datA):

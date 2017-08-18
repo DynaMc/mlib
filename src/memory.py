@@ -1,9 +1,17 @@
 import types
 import sys,os
-import struct
 from StringIO import StringIO
 
+if 'struct' in sys.modules:
+    del sys.modules['struct']
+    st = __import__('struct')
 
+def get_size(klass):
+    import ctypes
+    f = getattr(klass,'sizeof',lambda : ctypes.sizeof(klass))
+    return f()
+
+    
 ### sys._getframe(1).f_code.co_name
 class M(object):
 
@@ -14,7 +22,7 @@ class M(object):
         self.b = StringIO(d)
 
     def _get_bytes(self,fmt,s,at=False,off=0):
-        return struct.unpack(fmt,self.read_at(off,s) if at else self.read(s) )[0]
+        return st.unpack(fmt,self.read_at(off,s) if at else self.read(s) )[0]
     
     def skip(self,n):
         self.b.seek(n,os.SEEK_CUR)
@@ -32,6 +40,15 @@ class M(object):
         self.b.seek(old_l,os.SEEK_SET)
         return r
 
+    def read_struct_at(self,klass,at):
+        d = self.read_at(at,get_size(klass))
+        return klass.parse(d)
+
+    
+    def read_struct(self,klass):
+        d = self.read(get_size(klass))
+        return klass.parse(d)
+        
     # def bytes(self,t):
     #     s=  self.dword()
     #     return self.read

@@ -15,7 +15,7 @@ Your bag of handy codez for malware researchers
 	- xor 
 	- xtea 
 	- serpent
-	
+	- aes
 	
  - compression - same thing for compression algos so far:
    
@@ -32,8 +32,9 @@ Your bag of handy codez for malware researchers
  - winapi - various things related to windows api,
  
     - resolve api name from hash
+	- port of `CryptExportKey`/`CryptImportKey` returning object from `mlib.crypto`
 	
-	
+ 
  - bits - various things that operates on bits
  - hash - some old school hashes used in api resolving
  - rnd  - random wrappers

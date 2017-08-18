@@ -1,8 +1,14 @@
+try:
+    import re2 as re
+except ImportError:
+    import re
+
+import enum
 from functools import wraps
 from copy import deepcopy
 import gzip as _gz
 import errno,signal,os
-import re,log
+import log
 import string,StringIO
 import random
 import hashlib
@@ -11,6 +17,24 @@ log = log.get_logger(__name__)
 chunks = lambda l, n: [l[x: x+n] for x in xrange(0, len(l), n)]
 BASEPATH = ''
 
+
+def re_match(r,d,cstr):
+    if cstr:
+        r += '\x00'
+    return map(lambda x: x.strip("\x00"),re.findall(r,d))
+
+get_urls = lambda d,cstr=False: re_match("https?://[\x21-\x7e]{6,}",d,cstr)
+get_strings = lambda d,cstr=False: re_match('[ -~]{3,}',d,cstr)
+
+
+class E(enum.Enum):
+
+    @classmethod
+    def from_val(cls,val):
+        for n,e in cls.__members__.items():
+            if e.value == val:
+                return e
+        return None
 
 # def generic_parse(_data):
 #     try:
@@ -72,6 +96,12 @@ def get_my_path():
     if not BASEPATH:
         BASEPATH = realdir(__file__) + os.sep + __name__.split('.')[0]
     return BASEPATH
+
+def ngrams(data,cnt=4):
+    a = [data]
+    for i in range(1,cnt):
+        a.append(data[cnt:])
+    return zip(*a)
 
 def generic_parse(_data):
             

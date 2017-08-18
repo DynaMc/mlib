@@ -1,5 +1,5 @@
 import sys
-from abstract import PE
+#from abstract import PE
 from Queue import Queue
 from collections import namedtuple
 from threading import current_thread,Lock,Thread,Event
@@ -10,6 +10,8 @@ BB = namedtuple('BB',['begin','end','size',
                       'frm','to'
                       ]
 )
+
+
 
 def is_exit(impr):
     r = False
@@ -32,10 +34,34 @@ class E():
         ## basic blocks...
         self._bb = {}
         self._bb_range = {}
-        
-        self.funcs = []
+
+        ## functions
+        self._funcs = set()
+        self._funcs_obj = {}
+
+        # xrefs
         self.xrefs = {}
+
+        # private for solving switch jumps
         self.switch_jmp = []
+
+    @property
+    def funcs(self):
+        return list(self._funcs)
+
+
+    def function(self,addr):
+        raise NotImplementedError
+    
+        if addr not in self._funcs:
+            ## TODO: find coresponding funcion
+            return None
+
+        if addr in self._funcs_obj:
+            return self._funcs_obj[addr]
+
+        ## TODO build function object
+        return None
         
     def bb(self,a):
         if a in self._bb:
@@ -59,12 +85,14 @@ class E():
         self.xrefs[f].append(t)
         self.xrefs[t].append(f)
 
+    
+        
     def do_address(self,f,a,x=None,func=False):
         #print '%x -> %x' % (x,a)
         if x:
             self.add_xref(x,a)
         if func:
-            self.funcs.append(a)
+            self._funcs.add(a)
         self.q.append((f,a))
 #        self.disas_block(None,a)
 
@@ -86,7 +114,7 @@ class E():
                     return
                 
                 if self.ldr.is_exec(addr):
-                    self.do_address(None,addr,c.ins.address)
+                    self.do_address(None,addr,c.ins.address,func=True)
                     self.add_xref(c.val(0),c.ins.address)
                 
             elif c.val(0) in self.ldr.imports \
@@ -97,7 +125,7 @@ class E():
                 self.add_xref(c.val(0),c.ins.address)                
                         
         elif c.is_imm(0) and not c.reg(0):
-            self.do_address(None,c.val(0),c.ins.address)
+            self.do_address(None,c.val(0),c.ins.address,func=True)
             # self.add_xref(c.val(0),c.ins.address)
             # self.q.put(c.val(0))
 
@@ -107,7 +135,10 @@ class E():
         to = []
         ends_with_jump = False
 
-        for c in self.ldr.disasm(addr,0x100):
+        #for c in self.ldr.disasm(addr,0x300):
+        waddr = addr
+        while True:
+            c = self.ldr.disasm(waddr,15).next()
             cc.append(c)
 #            print repr(c),map(c.ins.group_name,c.ins.groups),c.ins.group(1)
             if c.group('ret'):
@@ -135,11 +166,13 @@ class E():
                     break
 
             elif c.mnem == 'push' and c.is_imm(0) and self.can_be_function(c.val(0)):
-                self.do_address(None,c.val(0),c.ins.address)
+                self.do_address(None,c.val(0),c.ins.address,func=True)
 
             elif c.mnem == 'mov' and c.is_imm(1) and self.can_be_function(c.val(1)):
-                self.do_address(None,c.val(1),c.ins.address)
+                self.do_address(None,c.val(1),c.ins.address,func=True)
 
+            waddr += c.ins.size
+                
         if len(cc) == 1 and cc[0].mnem == 'jmp':
             ## TODO:this usless indirection that should be delt with
             if c.val(0) in self.ldr.imports:
@@ -222,55 +255,35 @@ class E():
         
 
         self.q = []        
-        self.do_address(None,self.ldr.entry,None)
+        self.do_address(None,self.ldr.entry,None,func=True)
         self.run_in_loop()
-        print '[*] dicoverd bb: %d' % len(self._bb)
+#        print '[*] dicoverd bb: %d' % len(self._bb)
         # print '[*] problems with %d switch-case' % len(self.switch_jmp)
-        print map(hex,self.switch_jmp)
+#        print map(hex,self.switch_jmp)
         # for a in self.switch_jmp:
         #    
 #            _pool.apply_async(self.disas_block,(addr,))
 
         
 
-with open(sys.argv[1]) as f: d=f.read()
-p = PE(_data=d)
-engine = E(p)
-print hex(p.entry)
-engine.run()
-print engine.bb(0x040158C)
-print engine.bb(0x04015BD)
-print engine.bb(0x040157D)
-for a in engine.switch_jmp:
-    bb = engine.bb(a)
-    last_addr = bb.code[-1].ins.address
-    for a0 in engine.solve_switch_jump(a):
-        bb.to.append(a0)
-        engine.do_address(a,a0,last_addr)
-engine.run_in_loop()
-xbb=engine.bb(0x0402814)
-print xbb.code[0].group('jump')
-print engine.xrefs[0x401584]
+# with open(sys.argv[1]) as f: d=f.read()
+# p = PE(_data=d)
+# engine = E(p)
+# print hex(p.entry)
+# engine.run()
+# print engine.bb(0x040158C)
+# print engine.bb(0x04015BD)
+# print engine.bb(0x040157D)
+# for a in engine.switch_jmp:
+#     bb = engine.bb(a)
+#     last_addr = bb.code[-1].ins.address
+#     for a0 in engine.solve_switch_jump(a):
+#         bb.to.append(a0)
+#         engine.do_address(a,a0,last_addr)
+# engine.run_in_loop()
+# xbb=engine.bb(0x0402814)
+# print xbb.code[0].group('jump')
+# print engine.xrefs[0x401584]
 
-print hex(p.imports['printf']['addr'])
-print engine.xrefs[p.imports['printf']['addr']]
-
-
-#print hex(timesmth)
-
-
-#ins2=engine.bb(0x0407C77).code[-1]
-#print ins2
-#print ins2.ins.regs_access()
-
-#print len(engine.bb)
-# print 0x403412 in engine.bb
-
-# import json
-# ida_bb = json.load(open('/tmp/bb'))
-# # for bb in engine.bb:
-# #     if bb not in ida_bb:
-# #         print 'huh ida didnt found it?...',hex(bb)
-# for bb in ida_bb:
-#     if bb not in engine.bb:
-#         print 'huh i didnt found it?...',hex(bb)
+# print hex(p.imports['printf']['addr'])
+# print engine.xrefs[p.imports['printf']['addr']]
